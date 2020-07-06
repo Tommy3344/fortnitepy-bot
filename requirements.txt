@@ -3,3 +3,5 @@ BenBotAsync
 crayons
 pypresence
 psutil
+aiohttp
+colorama
