@@ -26,6 +26,18 @@ Software: PartyBot (fortnitepy-bot)
 License: Apache 2.0
 """
 
+class color:
+   PURPLE = '\033[95m'
+   CYAN = '\033[96m'
+   DARKCYAN = '\033[36m'
+   BLUE = '\033[94m'
+   GREEN = '\033[92m'
+   YELLOW = '\033[93m'
+   RED = '\033[91m'
+   BOLD = '\033[1m'
+   UNDERLINE = '\033[4m'
+   END = '\033[0m'
+
 try:
     # System imports.
     from typing import Tuple, Any, Union
@@ -50,6 +62,9 @@ try:
     import aiohttp
     import pypresence
     import psutil
+    from colorama import init
+    init(autoreset=True)
+    from colorama import Fore, Back, Style
 
 except ModuleNotFoundError as e:
     print(e)
@@ -57,6 +72,15 @@ except ModuleNotFoundError as e:
           'might fix the issue, if not please create an issue or join'
           'the support server.')
     sys.exit()
+    
+print(f'  ')
+print(color.GREEN + f'███████╗░█████╗░██████╗░████████╗███╗░░██╗██╗████████╗███████╗██████╗░██╗░░░██╗')
+print(color.GREEN + f'██╔════╝██╔══██╗██╔══██╗╚══██╔══╝████╗░██║██║╚══██╔══╝██╔════╝██╔══██╗╚██╗░██╔╝')
+print(color.GREEN + f'█████╗░░██║░░██║██████╔╝░░░██║░░░██╔██╗██║██║░░░██║░░░█████╗░░██████╔╝░╚████╔╝░')
+print(color.GREEN + f'██╔══╝░░██║░░██║██╔══██╗░░░██║░░░██║╚████║██║░░░██║░░░██╔══╝░░██╔═══╝░░░╚██╔╝░░')
+print(color.GREEN + f'██║░░░░░╚█████╔╝██║░░██║░░░██║░░░██║░╚███║██║░░░██║░░░███████╗██║░░░░░░░░██║░░░')
+print(color.GREEN + f'╚═╝░░░░░░╚════╝░╚═╝░░╚═╝░░░╚═╝░░░╚═╝░░╚══╝╚═╝░░░╚═╝░░░╚══════╝╚═╝░░░░░░░░╚═╝░░░')
+print(f'  ')
 
 # Imports uvloop and uses it if installed (Unix only).
 try:
@@ -220,6 +244,7 @@ if data['debug']:
 device_auth_details = get_device_auth_details().get(data['email'], {})
 client = commands.Bot(
     command_prefix='!',
+    case_insensitive=True,
     auth=fortnitepy.AdvancedAuth(
         email=data['email'],
         password=data['password'],
@@ -251,7 +276,7 @@ async def event_ready() -> None:
         client.loop.create_task(start_discord_rich_presence())
 
     for pending in list(client.pending_friends.values()):
-        if pending.direction == 'INBOUND':
+        if isinstance(pending, fortnitepy.IncomingPendingFriend):
             try:
                 epic_friend = await pending.accept() if data["friend_accept"] else await pending.decline()
                 if isinstance(epic_friend, fortnitepy.Friend):
@@ -267,45 +292,29 @@ async def event_ready() -> None:
 
 
 @client.event
-async def event_party_invite(invite):
-    if data['joinoninvite'].lower() == 'true':
-        if invite.sender.display_name not in data['BlockList']:
-            try:
-                await invite.accept()
-                print(f' [PartyBot] [{time()}] Accepted party invite from {invite.sender.display_name}')
-            except Exception as e:
-                pass
-        elif invite.sender.display_name in data['BlockList']:
-            print(f' [PartyBot] [{time()}] Never accepted party invite from' + Fore.RED + f' {invite.sender.display_name}')
-    if data['joinoninvite'].lower() == 'false':
-        if invite.sender.display_name in data['FullAccess']:
-            await invite.accept()
-            print(f' [PartyBot] [{time()}] Accepted party invite from {invite.sender.display_name}')
-        else:
-            print(f' [PartyBot] [{time()}] Never accepted party invite from {invite.sender.display_name}')
-            await invite.sender.send(f"I can't join you right now.")
+async def event_party_invite(invite: fortnitepy.ReceivedPartyInvitation) -> None:
+   if invite.sender.display_name not in data['BlockList']:
+      try:
+          await invite.accept()
+          print(f'[PartyBot] [{time()}] Accepted party invite from {invite.sender.display_name}.')
+      except Exception as e:
+              pass
+      if invite.sender.display_name in data['BlockList']:
+          await invite.decline()
+          print(f'[PartyBot] [{time()}] Declined party invite from {invite.sender.display_name}.')
 
 
 @client.event
-async def event_friend_request(request):
-    if data['friendaccept'].lower() == 'true':
-        if request.display_name not in data['BlockList']:
-            try:
-                await request.accept()
-                print(f" [PartyBot] [{time()}] Accepted friend request from: {request.display_name}")
-            except Exception as e:
-                pass
-        elif request.display_name in data['BlockList']:
-            print(f" [PartyBot] [{time()}] Never Accepted friend reqest from: " + Fore.RED + f"{request.display_name}")
-    if data['friendaccept'].lower() == 'false':
-        if request.display_name in data['FullAccess']:
-            try:
-                await request.accept()
-                print(f" [PartyBot] [{time()}] Accepted friend request from: {request.display_name}")
-            except Exception as e:
-                pass
-        else:
-            print(f" [PartyBot] [{time()}] Never accepted friend request from: {request.display_name}")
+async def event_friend_request(request: fortnitepy.IncomingPendingFriend) -> None:
+    print(f"[PartyBot] [{time()}] Received friend request from: {request.display_name}.")
+
+    if data['friend_accept']:
+        await request.accept()
+        print(f"[PartyBot] [{time()}] Accepted friend request from: {request.display_name}.")
+    else:
+        await request.decline()
+        print(f"[PartyBot] [{time()}] Declined friend request from: {request.display_name}.")
+
 
 @client.event
 async def event_party_member_join(member: fortnitepy.ClientPartyMember) -> None:
@@ -372,7 +381,12 @@ async def event_party_message(message: fortnitepy.FriendMessage) -> None:
     print(crayons.green(f'[PartyBot] [{time()}] {message.author.display_name}: {message.content}'))
 
 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the client using the outfits name.",
+    help="Sets the outfit of the client using the outfits name.\n"
+    "Example: !skin Nog Ops"
+)
 async def skin(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
     try:
         cosmetic = await BenBotAsync.get_cosmetic(
@@ -383,7 +397,7 @@ async def skin(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
             backendType="AthenaCharacter"
         )
 
-        await ctx.send(f'Skin set to {cosmetic.id}.')
+        await ctx.send(f'Skin set to {cosmetic.name}.')
         print(f"[PartyBot] [{time()}] Set skin to: {cosmetic.id}.")
         await client.party.me.set_outfit(asset=cosmetic.id)
 
@@ -392,7 +406,12 @@ async def skin(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
         print(f"[PartyBot] [{time()}] Failed to find a skin with the name: {content}.")
 
 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the backpack of the client using the backpacks name.",
+    help="Sets the backpack of the client using the backpacks name.\n"
+    "Example: !backpack Black Shield"
+)
 async def backpack(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
     try:
         cosmetic = await BenBotAsync.get_cosmetic(
@@ -403,7 +422,7 @@ async def backpack(ctx: fortnitepy.ext.commands.Context, *, content: str) -> Non
             backendType="AthenaBackpack"
         )
 
-        await ctx.send(f'Backpack set to {cosmetic.id}.')
+        await ctx.send(f'Backpack set to {cosmetic.name}.')
         print(f"[PartyBot] [{time()}] Set backpack to: {cosmetic.id}.")
         await client.party.me.set_backpack(asset=cosmetic.id)
 
@@ -412,8 +431,12 @@ async def backpack(ctx: fortnitepy.ext.commands.Context, *, content: str) -> Non
         print(f"[PartyBot] [{time()}] Failed to find a backpack with the name: {content}.")
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the emote of the client using the emotes name.",
+    help="Sets the emote of the client using the emotes name.\n"
+    "Example: !emote Windmill Floss"
+)
 async def emote(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
     try:
         cosmetic = await BenBotAsync.get_cosmetic(
@@ -424,7 +447,7 @@ async def emote(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
             backendType="AthenaDance"
         )
 
-        await ctx.send(f'Emote set to {cosmetic.id}.')
+        await ctx.send(f'Emote set to {cosmetic.name}.')
         print(f"[PartyBot] [{time()}] Set emote to: {cosmetic.id}.")
         await client.party.me.clear_emote()
         await client.party.me.set_emote(asset=cosmetic.id)
@@ -434,8 +457,12 @@ async def emote(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
         print(f"[PartyBot] [{time()}] Failed to find an emote with the name: {content}.")
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the pickaxe of the client using the pickaxe name.",
+    help="Sets the pickaxe of the client using the pickaxe name.\n"
+    "Example: !pickaxe Raider's Revenge"
+)
 async def pickaxe(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
     try:
         cosmetic = await BenBotAsync.get_cosmetic(
@@ -446,7 +473,7 @@ async def pickaxe(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None
             backendType="AthenaPickaxe"
         )
 
-        await ctx.send(f'Pickaxe set to {cosmetic.id}.')
+        await ctx.send(f'Pickaxe set to {cosmetic.name}.')
         print(f"[PartyBot] [{time()}] Set pickaxe to: {cosmetic.id}.")
         await client.party.me.set_pickaxe(asset=cosmetic.id)
 
@@ -455,8 +482,12 @@ async def pickaxe(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None
         print(f"[PartyBot] [{time()}] Failed to find a pickaxe with the name: {content}.")
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the pet (backpack) of the client using the pets name.",
+    help="Sets the pet (backpack) of the client using the pets name.\n"
+    "Example: !pet Bonesy"
+)
 async def pet(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
     try:
         cosmetic = await BenBotAsync.get_cosmetic(
@@ -467,7 +498,7 @@ async def pet(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
             backendType="AthenaPetCarrier"
         )
 
-        await ctx.send(f'Pet set to {cosmetic.id}.')
+        await ctx.send(f'Pet set to {cosmetic.name}.')
         print(f"[PartyBot] [{time()}] Set pet to: {cosmetic.id}.")
         await client.party.me.set_pet(asset=cosmetic.id)
 
@@ -476,8 +507,12 @@ async def pet(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
         print(f"[PartyBot] [{time()}] Failed to find a pet with the name: {content}.")
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the emoji of the client using the emojis name.",
+    help="Sets the emoji of the client using the emojis name.\n"
+    "Example: !emoji Snowball"
+)
 async def emoji(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
     try:
         cosmetic = await BenBotAsync.get_cosmetic(
@@ -488,7 +523,7 @@ async def emoji(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
             backendType="AthenaEmoji"
         )
 
-        await ctx.send(f'Emoji set to {cosmetic.id}.')
+        await ctx.send(f'Emoji set to {cosmetic.name}.')
         print(f"[PartyBot] [{time()}] Set emoji to: {cosmetic.id}.")
         await client.party.me.set_emoji(asset=cosmetic.id)
 
@@ -497,8 +532,12 @@ async def emoji(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
         print(f"[PartyBot] [{time()}] Failed to find an emoji with the name: {content}.")
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the contrail of the client using the contrail name.",
+    help="Sets the contrail of the client using the contrail name.\n"
+    "Example: !contrail Holly And Divey"
+)
 async def contrail(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
     try:
         cosmetic = await BenBotAsync.get_cosmetic(
@@ -509,7 +548,7 @@ async def contrail(ctx: fortnitepy.ext.commands.Context, *, content: str) -> Non
             backendType="AthenaSkyDiveContrail"
         )
 
-        await ctx.send(f'Contrail set to {cosmetic.id}.')
+        await ctx.send(f'Contrail set to {cosmetic.name}.')
         print(f"[PartyBot] [{time()}] Set contrail to: {cosmetic.id}.")
         await client.party.me.set_contrail(asset=cosmetic.id)
 
@@ -518,8 +557,12 @@ async def contrail(ctx: fortnitepy.ext.commands.Context, *, content: str) -> Non
         print(f"[PartyBot] [{time()}] Failed to find an contrail with the name: {content}.")
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the client to Purple Skull Trooper.",
+    help="Sets the outfit of the client to Purple Skull Trooper.\n"
+    "Example: !purpleskull"
+)
 async def purpleskull(ctx: fortnitepy.ext.commands.Context) -> None:
     skin_variants = client.party.me.create_variants(
         clothing_color=1
@@ -534,8 +577,12 @@ async def purpleskull(ctx: fortnitepy.ext.commands.Context) -> None:
     print(f"[PartyBot] [{time()}] Skin set to Purple Skull Trooper.")
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the client to Pink Ghoul Trooper.",
+    help="Sets the outfit of the client to Pink Ghoul Trooper.\n"
+    "Example: !pinkghoul"
+)
 async def pinkghoul(ctx: fortnitepy.ext.commands.Context) -> None:
     skin_variants = client.party.me.create_variants(
         material=3
@@ -550,8 +597,12 @@ async def pinkghoul(ctx: fortnitepy.ext.commands.Context) -> None:
     print(f"[PartyBot] [{time()}] Skin set to Pink Ghoul Trooper.")
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the backpack of the client to Purple Ghost Portal.",
+    help="Sets the backpack of the client to Purple Ghost Portal.\n"
+    "Example: !purpleportal"
+)
 async def purpleportal(ctx: fortnitepy.ext.commands.Context) -> None:
     skin_variants = client.party.me.create_variants(
         item='AthenaBackpack',
@@ -568,8 +619,12 @@ async def purpleportal(ctx: fortnitepy.ext.commands.Context) -> None:
     print(f"[PartyBot] [{time()}] Backpack set to Purple Ghost Portal.")
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Sets the banner of the client.",
+    help="Sets the banner of the client.\n"
+    "Example: !banner BRSeason01 defaultcolor15 100"
+)
 async def banner(ctx: fortnitepy.ext.commands.Context, icon: str, colour: str, banner_level: int) -> None:
     await client.party.me.set_banner(icon=icon, color=colour, season_level=banner_level)
 
@@ -577,8 +632,12 @@ async def banner(ctx: fortnitepy.ext.commands.Context, icon: str, colour: str, b
     print(f"[PartyBot] [{time()}] Banner set to: {icon}, {colour}, {banner_level}.")
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the client using CID.",
+    help="Sets the outfit of the client using CID.\n"
+    "Example: !cid CID_047_Athena_Commando_F_HolidayReindeer"
+)
 async def cid(ctx: fortnitepy.ext.commands.Context, character_id: str) -> None:
     await client.party.me.set_outfit(
         asset=character_id,
@@ -589,8 +648,12 @@ async def cid(ctx: fortnitepy.ext.commands.Context, character_id: str) -> None:
     print(f'[PartyBot] [{time()}] Skin set to {character_id}')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Creates the variants list by the variants you set using VTID.",
+    help="Creates the variants list by the variants you set using VTID.\n"
+    "Example: !vtid VTID_052_Skull_Trooper_RedFlames"
+)
 async def vtid(ctx: fortnitepy.ext.commands.Context, variant_token: str) -> None:
     variant_id = await set_vtid(variant_token)
 
@@ -605,8 +668,12 @@ async def vtid(ctx: fortnitepy.ext.commands.Context, variant_token: str) -> None
                    '(Warning: This feature is not supported, please use !variants)')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Creates the variants list by the variants you set.",
+    help="Creates the variants list by the variants you set.\n"
+    "Example: !variants CID_030_Athena_Commando_M_Halloween clothing_color 1"
+)
 async def variants(ctx: fortnitepy.ext.commands.Context, cosmetic_id: str, variant_type: str, variant_int: str) -> None:
     if 'cid' in cosmetic_id.lower() and 'jersey_color' not in variant_type.lower():
         skin_variants = client.party.me.create_variants(
@@ -655,8 +722,12 @@ async def variants(ctx: fortnitepy.ext.commands.Context, cosmetic_id: str, varia
     print(f'[PartyBot] [{time()}] Set variants of {cosmetic_id} to {variant_type} {variant_int}.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the client to Checkered Renegade.",
+    help="Sets the outfit of the client to Checkered Renegade.\n"
+    "Example: !checkeredrenegade"
+)
 async def checkeredrenegade(ctx: fortnitepy.ext.commands.Context) -> None:
     skin_variants = client.party.me.create_variants(
         material=2
@@ -671,8 +742,12 @@ async def checkeredrenegade(ctx: fortnitepy.ext.commands.Context) -> None:
     print(f'[PartyBot] [{time()}] Skin set to Checkered Renegade.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the client to Minty Elf.",
+    help="Sets the outfit of the client to Minty Elf.\n"
+    "Example: !mintyelf"
+)
 async def mintyelf(ctx: fortnitepy.ext.commands.Context) -> None:
     skin_variants = client.party.me.create_variants(
         material=2
@@ -687,8 +762,12 @@ async def mintyelf(ctx: fortnitepy.ext.commands.Context) -> None:
     print(f'[PartyBot] [{time()}] Skin set to Minty Elf.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the emote of the client using EID.",
+    help="Sets the emote of the client using EID.\n"
+    "Example: !eid EID_Floss"
+)
 async def eid(ctx: fortnitepy.ext.commands.Context, emote_id: str) -> None:
     await client.party.me.clear_emote()
     await client.party.me.set_emote(
@@ -698,15 +777,23 @@ async def eid(ctx: fortnitepy.ext.commands.Context, emote_id: str) -> None:
     await ctx.send(f'Emote set to {emote_id}!')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Clears/stops the emote currently playing.",
+    help="Clears/stops the emote currently playing.\n"
+    "Example: !stop"
+)
 async def stop(ctx: fortnitepy.ext.commands.Context) -> None:
     await client.party.me.clear_emote()
     await ctx.send('Stopped emoting.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the backpack of the client using BID.",
+    help="Sets the backpack of the client using BID.\n"
+    "Example: !bid BID_023_Pinkbear"
+)
 async def bid(ctx: fortnitepy.ext.commands.Context, backpack_id: str) -> None:
     await client.party.me.set_backpack(
         asset=backpack_id
@@ -715,14 +802,13 @@ async def bid(ctx: fortnitepy.ext.commands.Context, backpack_id: str) -> None:
     await ctx.send(f'Backbling set to {backpack_id}!')
 
 
- 
-@client.command()
-async def _help(ctx: fortnitepy.ext.commands.Context) -> None:
-    await ctx.send('For a list of commands, go to: https://github.com/xMistt/fortnitepy-bot/wiki/Commands')
-
-
- 
-@client.command(aliases=['legacypickaxe'])
+  
+@client.command(
+    aliases=['legacypickaxe'],
+    description="[Cosmetic] Sets the pickaxe of the client using PICKAXE_ID",
+    help="Sets the pickaxe of the client using PICKAXE_ID\n"
+    "Example: !pickaxe_id Pickaxe_ID_073_Balloon"
+)
 async def pickaxe_id(ctx: fortnitepy.ext.commands.Context, pickaxe_id_: str) -> None:
     await client.party.me.set_pickaxe(
         asset=pickaxe_id_
@@ -731,8 +817,12 @@ async def pickaxe_id(ctx: fortnitepy.ext.commands.Context, pickaxe_id_: str) -> 
     await ctx.send(f'Pickaxe set to {pickaxe_id_}')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the pet of the client using PetCarrier_.",
+    help="Sets the pet of the client using PetCarrier_.\n"
+    "Example: !pet_carrier PetCarrier_002_Chameleon"
+)
 async def pet_carrier(ctx: fortnitepy.ext.commands.Context, pet_carrier_id: str) -> None:
     await client.party.me.set_pet(
         asset=pet_carrier_id
@@ -741,8 +831,12 @@ async def pet_carrier(ctx: fortnitepy.ext.commands.Context, pet_carrier_id: str)
     await ctx.send(f'Pet set to {pet_carrier_id}!')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the emoji of the client using Emoji_.",
+    help="Sets the emoji of the client using Emoji_.\n"
+    "Example: !emoji_id Emoji_PeaceSign"
+)
 async def emoji_id(ctx: fortnitepy.ext.commands.Context, emoji_: str) -> None:
     await client.party.me.clear_emote()
     await client.party.me.set_emoji(
@@ -752,8 +846,12 @@ async def emoji_id(ctx: fortnitepy.ext.commands.Context, emoji_: str) -> None:
     await ctx.send(f'Emoji set to {emoji_}!')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the contrail of the client using Trails_.",
+    help="Sets the contrail of the client using Trails_.\n"
+    "Example: !trails Trails_ID_075_Celestial"
+)
 async def trails(ctx: fortnitepy.ext.commands.Context, trails_: str) -> None:
     await client.party.me.set_contrail(
         asset=trails_
@@ -762,8 +860,14 @@ async def trails(ctx: fortnitepy.ext.commands.Context, trails_: str) -> None:
     await ctx.send(f'Contrail set to {trails}!')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets pickaxe using PICKAXE_ID or display name & does 'Point it Out'. If no pickaxe is "
+                "specified, only the emote will be played.",
+    help="Sets pickaxe using PICKAXE_ID or display name & does 'Point it Out'. If no pickaxe is "
+         "specified, only the emote will be played.\n"
+    "Example: !point Pickaxe_ID_029_Assassin"
+)
 async def point(ctx: fortnitepy.ext.commands.Context, *, content: Union[str, None] = None) -> None:
     if content is None:
         await client.party.me.set_emote(asset='EID_IceKing')
@@ -790,29 +894,46 @@ async def point(ctx: fortnitepy.ext.commands.Context, *, content: Union[str, Non
             await ctx.send(f"Failed to find a pickaxe with the name: {content}")
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Sets the readiness of the client to ready.",
+    help="Sets the readiness of the client to ready.\n"
+    "Example: !ready"
+)
 async def ready(ctx: fortnitepy.ext.commands.Context) -> None:
     await client.party.me.set_ready(fortnitepy.ReadyState.READY)
     await ctx.send('Ready!')
 
 
- 
-@client.command(aliases=['sitin'])
+  
+@client.command(
+    aliases=['sitin'],
+    description="[Party] Sets the readiness of the client to unready.",
+    help="Sets the readiness of the client to unready.\n"
+    "Example: !unready"
+)
 async def unready(ctx: fortnitepy.ext.commands.Context) -> None:
     await client.party.me.set_ready(fortnitepy.ReadyState.NOT_READY)
     await ctx.send('Unready!')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Sets the readiness of the client to SittingOut.",
+    help="Sets the readiness of the client to SittingOut.\n"
+    "Example: !sitout"
+)
 async def sitout(ctx: fortnitepy.ext.commands.Context) -> None:
     await client.party.me.set_ready(fortnitepy.ReadyState.SITTING_OUT)
     await ctx.send('Sitting Out!')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Sets the battlepass info of the client.",
+    help="Sets the battlepass info of the client.\n"
+    "Example: !bp 100"
+)
 async def bp(ctx: fortnitepy.ext.commands.Context, tier: int) -> None:
     await client.party.me.set_battlepass_info(
         has_purchased=True,
@@ -822,8 +943,12 @@ async def bp(ctx: fortnitepy.ext.commands.Context, tier: int) -> None:
     await ctx.send(f'Set battle pass tier to {tier}.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Sets the level of the client.",
+    help="Sets the level of the client.\n"
+    "Example: !level 999"
+)
 async def level(ctx: fortnitepy.ext.commands.Context, banner_level: int) -> None:
     await client.party.me.set_banner(
         season_level=banner_level
@@ -832,15 +957,23 @@ async def level(ctx: fortnitepy.ext.commands.Context, banner_level: int) -> None
     await ctx.send(f'Set level to {level}.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Sends message to party chat with the given content.",
+    help="Sends message to party chat with the given content.\n"
+    "Example: !echo i cant fix the fucking public lobby bots"
+)
 async def echo(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
     await client.party.send(content)
     await ctx.send('Sent message to party chat.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Client] Sends and sets the status.",
+    help="Sends and sets the status.\n"
+    "Example: !status Presence Unknown"
+)
 async def status(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
     await client.set_status(content)
 
@@ -848,8 +981,12 @@ async def status(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
     print(f'[PartyBot] [{time()}] Status set to {content}.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Leaves the current party.",
+    help="Leaves the current party.\n"
+    "Example: !leave"
+)
 async def leave(ctx: fortnitepy.ext.commands.Context) -> None:
     await client.party.me.set_emote('EID_Wave')
     await asyncio.sleep(2)
@@ -859,8 +996,12 @@ async def leave(ctx: fortnitepy.ext.commands.Context) -> None:
     print(f'[PartyBot] [{time()}] Left the party as I was requested.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Kicks the inputted user.",
+    help="Kicks the inputted user.\n"
+    "Example: !kick Cxnyaa"
+)
 async def kick(ctx: fortnitepy.ext.commands.Context, *, epic_username: str) -> None:
     user = await client.fetch_profile(epic_username)
     member = client.party.members.get(user.id)
@@ -878,8 +1019,14 @@ async def kick(ctx: fortnitepy.ext.commands.Context, *, epic_username: str) -> N
                               "Failed to kick member as I don't have the required permissions."))
 
 
- 
-@client.command(aliases=['unhide'])
+  
+@client.command(
+    aliases=['unhide'],
+    description="[Party] Promotes the defined user to party leader. If friend is left blank, "
+                "the message author will be used.",
+    help="Promotes the defined user to party leader. If friend is left blank, the message author will be used.\n"
+    "Example: !promote Terbau"
+)
 async def promote(ctx: fortnitepy.ext.commands.Context, *, epic_username: Union[str, None] = None) -> None:
     if epic_username is None:
         user = await client.fetch_profile(ctx.author.display_name)
@@ -901,8 +1048,12 @@ async def promote(ctx: fortnitepy.ext.commands.Context, *, epic_username: Union[
                               "Failed to kick member as I don't have the required permissions."))
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Sets the lobbies selected playlist.",
+    help="Sets the lobbies selected playlist.\n"
+    "Example: !playlist_id Playlist_Tank_Solo"
+)
 async def playlist_id(ctx: fortnitepy.ext.commands.Context, playlist_: str) -> None:
     try:
         await client.party.set_playlist(playlist=playlist_)
@@ -913,8 +1064,12 @@ async def playlist_id(ctx: fortnitepy.ext.commands.Context, playlist_: str) -> N
                           "Failed to set gamemode as I don't have the required permissions."))
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Sets the parties current privacy.",
+    help="Sets the parties current privacy.\n"
+    "Example: !privacy private"
+)
 async def privacy(ctx: fortnitepy.ext.commands.Context, privacy_type: str) -> None:
     try:
         if privacy_type.lower() == 'public':
@@ -937,8 +1092,13 @@ async def privacy(ctx: fortnitepy.ext.commands.Context, privacy_type: str) -> No
                           "Failed to set party privacy as I don't have the required permissions."))
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Copies the cosmetic loadout of the defined user. If user is left blank, "
+                "the message author will be used.",
+    help="Copies the cosmetic loadout of the defined user. If user is left blank, the message author will be used.\n"
+    "Example: !copy Terbau"
+)
 async def copy(ctx: fortnitepy.ext.commands.Context, *, epic_username: Union[str, None] = None) -> None:
     if epic_username is None:
         member = client.party.members.get(ctx.author.id)
@@ -979,8 +1139,12 @@ async def copy(ctx: fortnitepy.ext.commands.Context, *, epic_username: Union[str
     await ctx.send(f'Copied the loadout of {member.display_name}.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Shortcut for equipping the skin CID_VIP_Athena_Commando_M_GalileoGondola_SG.",
+    help="Shortcut for equipping the skin CID_VIP_Athena_Commando_M_GalileoGondola_SG.\n"
+    "Example: !hologram"
+)
 async def hologram(ctx: fortnitepy.ext.commands.Context) -> None:
     await client.party.me.set_outfit(
         asset='CID_VIP_Athena_Commando_M_GalileoGondola_SG'
@@ -990,8 +1154,12 @@ async def hologram(ctx: fortnitepy.ext.commands.Context) -> None:
     print(f'[PartyBot] [{time()}] Skin set to Star Wars Hologram.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Shortcut for equipping the skin CID_VIP_Athena_Commando_M_GalileoGondola_SG.",
+    help="Shortcut for equipping the skin CID_VIP_Athena_Commando_M_GalileoGondola_SG.\n"
+    "Example: !gift is a joke command."
+)
 async def gift(ctx: fortnitepy.ext.commands.Context) -> None:
     await client.party.me.clear_emote()
 
@@ -1002,8 +1170,12 @@ async def gift(ctx: fortnitepy.ext.commands.Context) -> None:
     await ctx.send('What did you think would happen?')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Sets the parties custom matchmaking code.",
+    help="Sets the parties custom matchmaking code.\n"
+    "Example: !skin Nog Ops"
+)
 async def matchmakingcode(ctx: fortnitepy.ext.commands.Context, *, custom_matchmaking_key: str) -> None:
     await client.party.set_custom_key(
         key=custom_matchmaking_key
@@ -1012,166 +1184,27 @@ async def matchmakingcode(ctx: fortnitepy.ext.commands.Context, *, custom_matchm
     await ctx.send(f'Custom matchmaking code set to: {custom_matchmaking_key}')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Shortcut for equipping the emote EID_TourBus.",
+    help="Shortcut for equipping the emote EID_TourBus.\n"
+    "Example: !ponpon"
+)
 async def ponpon(ctx: fortnitepy.ext.commands.Context) -> None:
     await client.party.me.set_emote(
         asset='EID_TourBus'
     )
 
     await ctx.send('Emote set to Ninja Style!')
-    
-@client.command()
-async def goldmidas(ctx: fortnitepy.ext.commands.Context) -> None:
-    await client.party.me.set_outfit(
-        asset='cid_694_athena_commando_m_catburglar',
-        variants=client.party.me.create_variants(progressive=4),
-        enlightenment=(2, 140)
-    )
-
-    await ctx.send(f'Skin set to Golden Midas.')
-    
-@client.command()
-async def goldbrutus(ctx: fortnitepy.ext.commands.Context) -> None:
-    await client.party.me.set_outfit(
-        asset='cid_692_athena_commando_m_henchmantough',
-        variants=client.party.me.create_variants(progressive=4),
-        enlightenment=(2, 180)
-    )
-
-    await ctx.send(f'Skin set to Golden Brutus.')
-    
-@client.command()
-async def goldmeowscles(ctx: fortnitepy.ext.commands.Context) -> None:
-    await client.party.me.set_outfit(
-        asset='cid_693_athena_commando_m_buffcat',
-        variants=client.party.me.create_variants(progressive=4),
-        enlightenment=(2, 220)
-    )
-
-    await ctx.send(f'Skin set to Golden Meowscles.')
-    
-@client.command()
-async def goldtntina(ctx: fortnitepy.ext.commands.Context) -> None:
-    await client.party.me.set_outfit(
-        asset='cid_691_athena_commando_f_tntina',
-        variants=client.party.me.create_variants(progressive=7),
-        enlightenment=(2, 260)
-    )
-
-    await ctx.send(f'Skin set to Golden Tntina.')
-    
-@client.command()
-async def goldskye(ctx: fortnitepy.ext.commands.Context) -> None:
-    await client.party.me.set_outfit(
-        asset='cid_690_athena_commando_f_photographer',
-        variants=client.party.me.create_variants(progressive=4),
-        enlightenment=(2, 300)
-    )
-
-    await ctx.send(f'Skin set to Golden Skye.')
-    
-@client.command()
-async def corruptscratch(ctx: fortnitepy.ext.commands.Context) -> None:
-    await client.party.me.set_outfit(
-        asset='cid_566_athena_commando_m_crazyeight',
-        variants=client.party.me.create_variants(progressive=4),
-        enlightenment=(1, 250)
-    )
-
-    await ctx.send(f'Skin set to Corrupted Scratch.')
-    
-@client.command()
-async def eteknight1(ctx: fortnitepy.ext.commands.Context) -> None:
-    await client.party.me.set_outfit(
-        asset='CID_767_Athena_Commando_F_BlackKnight',
-        variants=client.party.me.create_variants(progressive=1),
-        enlightenment=(3, 160)
-    )
-
-    await ctx.send(f'Skin set to Enlightened Eternal Knight.')
-    
-@client.command()
-async def eteknight2(ctx: fortnitepy.ext.commands.Context) -> None:
-    await client.party.me.set_outfit(
-        asset='CID_767_Athena_Commando_F_BlackKnight',
-        variants=client.party.me.create_variants(progressive=2),
-        enlightenment=(3, 160)
-    )
-
-    await ctx.send(f'Skin set to Enlightened Eternal Knight.')
-    
-@client.command()
-async def eteknight3(ctx: fortnitepy.ext.commands.Context) -> None:
-    await client.party.me.set_outfit(
-        asset='CID_767_Athena_Commando_F_BlackKnight',
-        variants=client.party.me.create_variants(progressive=3),
-        enlightenment=(3, 160)
-    )
-
-    await ctx.send(f'Skin set to Enlightened Eternal Knight.')
-    
-@client.command()
-async def ikonik(ctx: fortnitepy.ext.commands.Context) -> None:
-    await client.party.me.set_outfit(
-        asset='cid_313_athena_commando_m_kpopfashion'
-    )
-
-    await ctx.send(f'Skin set to IKONIK.')
-    
-@client.command()
-async def scenario(ctx: fortnitepy.ext.commands.Context) -> None:
-    await client.party.me.set_emote(
-        asset='eid_kpopdance03'
-    )
-
-    await ctx.send(f'Emote set to Scenario.')
-    
-@client.command()
-async def madcap(ctx: fortnitepy.ext.commands.Context) -> None:
-    await client.party.me.set_outfit(
-        asset='CID_610_Athena_Commando_M_ShiitakeShaolin'
-    )
-
-    await ctx.send(f'Skin set to Madcap.')
-    
-    
-@client.command()
-async def galaxygirl(ctx: fortnitepy.ext.commands.Context) -> None:
-    await client.party.me.set_outfit(
-        asset='CID_337_Athena_Commando_F_Celestial'
-    )
-
-    await ctx.send(f'Skin set to "Galaxy Girl".')
-
-    
-@client.command()
-async def takethel(ctx: fortnitepy.ext.commands.Context) -> None:
-    await client.party.me.set_emote(
-        asset='eid_takethel'
-    )
-
-    await ctx.send(f'Emote set to Take The L.')
-
-@client.command()
-async def floss(ctx: fortnitepy.ext.commands.Context) -> None:
-    await client.party.me.set_emote(
-        asset='eid_floss'
-    )
-
-    await ctx.send(f'Emote set to Floss.')
-    
-@client.command()
-async def theworm(ctx: fortnitepy.ext.commands.Context) -> None:
-    await client.party.me.set_emote(
-        asset='eid_worm'
-    )
-
-    await ctx.send(f'Emote set to The Worm.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the enlightened value of a skin "
+                "(used for skins such as Glitched Scratch or Golden Peely).",
+    help="Sets the enlightened value of a skin.\n"
+    "Example: !enlightened CID_701_Athena_Commando_M_BananaAgent 2 350"
+)
 async def enlightened(ctx: fortnitepy.ext.commands.Context, cosmetic_id: str, br_season: int, skin_level: int) -> None:
     variant_types = {
         1: client.party.me.create_variants(progressive=4),
@@ -1198,8 +1231,12 @@ async def enlightened(ctx: fortnitepy.ext.commands.Context, cosmetic_id: str, br
     print(f'[PartyBot] [{time()}] Enlightenment for {cosmetic_id} set to level {skin_level} (for Season 1{br_season}).')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Shortcut for equipping the skin CID_605_Athena_Commando_M_TourBus.",
+    help="Shortcut for equipping the skin CID_605_Athena_Commando_M_TourBus.\n"
+    "Example: !ninja"
+)
 async def ninja(ctx: fortnitepy.ext.commands.Context) -> None:
     await client.party.me.set_outfit(
         asset='CID_605_Athena_Commando_M_TourBus'
@@ -1209,8 +1246,12 @@ async def ninja(ctx: fortnitepy.ext.commands.Context) -> None:
     print(f'[PartyBot] [{time()}] Skin set to Ninja.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Equips all very rare skins.",
+    help="Equips all very rare skins.\n"
+    "Example: !rareskins"
+)
 async def rareskins(ctx: fortnitepy.ext.commands.Context) -> None:
     await ctx.send('Showing all rare skins now.')
 
@@ -1242,8 +1283,13 @@ async def rareskins(ctx: fortnitepy.ext.commands.Context) -> None:
         await asyncio.sleep(2)
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the client to Golden Peely "
+                "(shortcut for !enlightened CID_701_Athena_Commando_M_BananaAgent 2 350).",
+    help="Sets the outfit of the client to Golden Peely.\n"
+    "Example: !goldenpeely"
+)
 async def goldenpeely(ctx: fortnitepy.ext.commands.Context) -> None:
     await client.party.me.set_outfit(
         asset='CID_701_Athena_Commando_M_BananaAgent',
@@ -1252,10 +1298,40 @@ async def goldenpeely(ctx: fortnitepy.ext.commands.Context) -> None:
     )
 
     await ctx.send(f'Skin set to Golden Peely.')
+    
+    
+@client.command(
+    description="[Cosmetic] Shortcut for equipping the emote EID_TakeTheL.",
+    help="Shortcut for equipping the emote EID_TakeTheL.\n"
+    "Example: !takethel"
+)
+async def takethel(ctx: fortnitepy.ext.commands.Context) -> None:
+    await client.party.me.set_emote(
+        asset='eid_takethel'
+    )
+
+    await ctx.send(f'Emote set to Take The L.')
+    
+@client.command(
+    description="[Cosmetic] Shortcut for equipping the emote EID_Worm.",
+    help="Shortcut for equipping the emote EID_Worm.\n"
+    "Example: !theworm"
+)
+async def theworm(ctx: fortnitepy.ext.commands.Context) -> None:
+    await client.party.me.set_emote(
+        asset='eid_worm'
+    )
+
+    await ctx.send(f'Emote set to Worm.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Randomly finds & equips a skin. Types currently include skin, backpack, emote & all. "
+                "If type is left blank, a random skin will be equipped.",
+    help="Randomly finds & equips a skin.\n"
+    "Example: !random skin"
+)
 async def random(ctx: fortnitepy.ext.commands.Context, cosmetic_type: str = 'skin') -> None:
     if cosmetic_type == 'skin':
         all_outfits = await BenBotAsync.get_cosmetics(
@@ -1346,29 +1422,46 @@ async def random(ctx: fortnitepy.ext.commands.Context, cosmetic_type: str = 'ski
         await ctx.send(f'Emote randomly set to {random_emote}.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Clears the currently set backpack.",
+    help="Clears the currently set backpack.\n"
+    "Example: !nobackpack"
+)
 async def nobackpack(ctx: fortnitepy.ext.commands.Context) -> None:
     await client.party.me.clear_backpack()
     await ctx.send('Removed backpack.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Clears the currently set pet.",
+    help="Clears the currently set pet.\n"
+    "Example: !nopet"
+)
 async def nopet(ctx: fortnitepy.ext.commands.Context) -> None:
     await client.party.me.clear_pet()
     await ctx.send('Removed pet.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Clears the currently set contrail.",
+    help="Clears the currently set contrail.\n"
+    "Example: !nocontrail"
+)
 async def nocontrail(ctx: fortnitepy.ext.commands.Context) -> None:
     await client.party.me.clear_contrail()
     await ctx.send('Removed contrail.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Sets the client to the \"In Match\" state. If the first argument is 'progressive', "
+                "the players remaining will gradually drop to mimic a real game.",
+    help="Sets the client to the \"In Match\" state.\n"
+    "Example: !match 69 420"
+)
 async def match(ctx: fortnitepy.ext.commands.Context, players: Union[str, int] = 0, match_time: int = 0) -> None:
     if players == 'progressive':
         match_time = datetime.datetime.utcnow()
@@ -1398,8 +1491,12 @@ async def match(ctx: fortnitepy.ext.commands.Context, players: Union[str, int] =
                        '\nUse the command: !lobby to revert back to normal.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Sets the client to normal pre-game lobby state.",
+    help="Sets the client to normal pre-game lobby state.\n"
+    "Example: !lobby"
+)
 async def lobby(ctx: fortnitepy.ext.commands.Context) -> None:
     if client.default_party_member_config.cls == fortnitepy.JustChattingClientPartyMember:
         client.default_party_member_config.cls = fortnitepy.ClientPartyMember
@@ -1421,8 +1518,13 @@ async def lobby(ctx: fortnitepy.ext.commands.Context) -> None:
     await ctx.send('Set state to the pre-game lobby.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Joins the party of the defined friend. If friend is left blank, "
+                "the message author will be used.",
+    help="Joins the party of the defined friend.\n"
+    "Example: !join Terbau"
+)
 async def join(ctx: fortnitepy.ext.commands.Context, *, epic_username: Union[str, None] = None) -> None:
     if epic_username is None:
         epic_friend = client.get_friend(ctx.author.id)
@@ -1447,8 +1549,12 @@ async def join(ctx: fortnitepy.ext.commands.Context, *, epic_username: Union[str
         await ctx.send('Cannot join party as the friend is not found.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Sends the defined user a friend request.",
+    help="Sends the defined user a friend request.\n"
+    "Example: !friend Ninja"
+)
 async def friend(ctx: fortnitepy.ext.commands.Context, *, epic_username: str) -> None:
     if data['friend_accept']:
         await ctx.send('All friend requests will be accepted so there is no need to add manually.')
@@ -1466,8 +1572,12 @@ async def friend(ctx: fortnitepy.ext.commands.Context, *, epic_username: str) ->
             print(crayons.red(f"[PartyBot] [{time()}] [ERROR] Failed to find a user with the name {epic_username}."))
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Sets the lobbies selected playlist using playlist name.",
+    help="Sets the lobbies selected playlist using playlist name.\n"
+    "Example: !playlist Food Fight"
+)
 async def playlist(ctx: fortnitepy.ext.commands.Context, *, playlist_name: str) -> None:
     try:
         scuffedapi_playlist_id = await get_playlist(playlist_name)
@@ -1488,8 +1598,13 @@ async def playlist(ctx: fortnitepy.ext.commands.Context, *, playlist_name: str) 
                           "Failed to set playlist as I don't have the required permissions."))
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Invites the defined friend to the party. If friend is left blank, "
+                "the message author will be used.",
+    help="Invites the defined friend to the party.\n"
+    "Example: !invite Terbau"
+)
 async def invite(ctx: fortnitepy.ext.commands.Context, *, epic_username: Union[str, None] = None) -> None:
     if epic_username is None:
         epic_friend = client.get_friend(ctx.author.id)
@@ -1519,8 +1634,13 @@ async def invite(ctx: fortnitepy.ext.commands.Context, *, epic_username: Union[s
                           "Failed to invite to party as the friend is not found."))
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Hides everyone in the party except for the bot but if a player is specified, "
+                "that specific player will be hidden.",
+    help="Hides members of the party.\n"
+    "Example: !hide"
+)
 async def hide(ctx: fortnitepy.ext.commands.Context, party_member: Union[str, None] = None) -> None:
     if client.party.me.leader:
         if party_member is not None:
@@ -1528,7 +1648,9 @@ async def hide(ctx: fortnitepy.ext.commands.Context, party_member: Union[str, No
             member = client.party.members.get(user.id)
 
             if member is not None:
-                raw_squad_assignments = client.party.meta.get_prop('Default:RawSquadAssignments_j')["RawSquadAssignments"]
+                raw_squad_assignments = client.party.meta.get_prop(
+                    'Default:RawSquadAssignments_j'
+                )["RawSquadAssignments"]
 
                 for player in raw_squad_assignments:
                     if player['memberId'] == member.id:
@@ -1550,7 +1672,8 @@ async def hide(ctx: fortnitepy.ext.commands.Context, party_member: Union[str, No
                 }
             )
 
-            await ctx.send('Hid everyone in the party. Use !unhide if you want to unhide everyone.')
+            await ctx.send('Hid everyone in the party. Use !unhide if you want to unhide everyone.'
+                           '\nReminder: Crashing lobbies is bannable offense which will result in a permanent ban.')
             print(f'[PartyBot] [{time()}] Hid everyone in the party.')
     else:
         await ctx.send("Failed to hide everyone, as I'm not party leader")
@@ -1558,8 +1681,12 @@ async def hide(ctx: fortnitepy.ext.commands.Context, party_member: Union[str, No
                           "Failed to hide everyone as I don't have the required permissions."))
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the client using the outfits name with the ghost variant.",
+    help="Sets the outfit of the client using the outfits name with the ghost variant.\n"
+    "Example: !ghost Meowscles"
+)
 async def ghost(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
     try:
         skin_variants = client.party.me.create_variants(
@@ -1587,8 +1714,12 @@ async def ghost(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
         print(f"[PartyBot] [{time()}] Failed to find a skin with the name: {content}.")
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the client using the outfits name with the shadow variant.",
+    help="Sets the outfit of the client using the outfits name with the shadow variant.\n"
+    "Example: !shadow Midas"
+)
 async def shadow(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
     try:
         skin_variants = client.party.me.create_variants(
@@ -1616,8 +1747,12 @@ async def shadow(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
         print(f"[PartyBot] [{time()}] Failed to find a skin with the name: {content}.")
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Client] Sets the clients kairos/PartyHub avatar.",
+    help="Sets the clients kairos/PartyHub avatar.\n"
+    "Example: !avatar stw_soldier_f"
+)
 async def avatar(ctx: fortnitepy.ext.commands.Context, kairos_cid: str) -> None:
     kairos_avatar = fortnitepy.Avatar(
         asset=kairos_cid
@@ -1629,8 +1764,13 @@ async def avatar(ctx: fortnitepy.ext.commands.Context, kairos_cid: str) -> None:
     print(f'[PartyBot] [{time()}] Kairos avatar set to {kairos_cid}.')
 
 
- 
-@client.command(aliases=['clear'])
+  
+@client.command(
+    aliases=['clear'],
+    description="[Client] Clears command prompt/terminal.",
+    help="Clears command prompt/terminal.\n"
+    "Example: !clean"
+)
 async def clean(ctx: fortnitepy.ext.commands.Context) -> None:
     os.system('cls' if 'win' in sys.platform else 'clear')
 
@@ -1642,8 +1782,12 @@ async def clean(ctx: fortnitepy.ext.commands.Context) -> None:
     print(f'[PartyBot] [{time()}] Command prompt/terminal cleared.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Equips all cosmetics from a set.",
+    help="Equips all cosmetics from a set.\n"
+    "Example: !set Fort Knights"
+)
 async def set(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
     cosmetic_types = {
         "AthenaBackpack": client.party.me.set_backpack,
@@ -1675,8 +1819,13 @@ async def set(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
     print(f'[PartyBot] [{time()}] Fishing equipping  all cosmetics from the {set_items[0].set} set.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Creates the variants list by the variants you set from skin name. "
+                "If you want to include spaces in the skin name, you need to enclose it in \"'s.",
+    help="Creates the variants list by the variants you set from skin name.\n"
+    "Example: !style \"Skull Trooper\" clothing_color 1"
+)
 async def style(ctx: fortnitepy.ext.commands.Context, cosmetic_name: str, variant_type: str, variant_int: str) -> None:
     # cosmetic_types = {
     #     "AthenaCharacter": client.party.me.set_outfit,
@@ -1707,8 +1856,53 @@ async def style(ctx: fortnitepy.ext.commands.Context, cosmetic_name: str, varian
     print(f'[PartyBot] [{time()}] Set variants of {cosmetic.id} to {variant_type} {variant_int}.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Equips all new non encrypted skins.",
+    help="Equips all new non encrypted skins.\n"
+    "Example: !new"
+)
+async def new(ctx: fortnitepy.ext.commands.Context) -> None:
+    async with aiohttp.ClientSession() as session:
+        request = await session.request(
+            method='GET',
+            url='https://benbotfn.tk/api/v1/files/added',
+        )
+
+        response = await request.json()
+
+    for new_skin in [new_cid for new_cid in response if new_cid.split('/')[-1].lower().startswith('cid_')]:
+        await client.party.me.set_outfit(
+            asset=new_skin.split('/')[-1].split('.uasset')[0]
+        )
+
+        await ctx.send(f"Skin set to {new_skin.split('/')[-1].split('.uasset')[0]}!")
+        print(f"[PartyBot] [{time()}] Skin set to: {new_skin.split('/')[-1].split('.uasset')[0]}!")
+
+        await asyncio.sleep(3)
+
+    await ctx.send(f'Finished equipping all new unencrypted skins.')
+    print(f'[PartyBot] [{time()}] Finished equipping all new unencrypted skins.')
+
+    for new_emote in [new_eid for new_eid in response if new_eid.split('/')[-1].lower().startswith('eid_')]:
+        await client.party.me.set_emote(
+            asset=new_skin.split('/')[-1].split('.uasset')[0]
+        )
+
+        await ctx.send(f"Emote set to {new_eid.split('/')[-1].split('.uasset')[0]}!")
+        print(f"[PartyBot] [{time()}] Emote set to: {new_eid.split('/')[-1].split('.uasset')[0]}!")
+
+        await asyncio.sleep(3)
+
+    await ctx.send(f'Finished equipping all new unencrypted skins.')
+    print(f'[PartyBot] [{time()}] Finished equipping all new unencrypted skins.')
+    
+    
+@client.command(
+    description="[Cosmetic] Equips all new non encrypted skins.",
+    help="Equips all new non encrypted skins.\n"
+    "Example: !newskin"
+)
 async def newskin(ctx: fortnitepy.ext.commands.Context) -> None:
     async with aiohttp.ClientSession() as session:
         request = await session.request(
@@ -1735,7 +1929,11 @@ async def newskin(ctx: fortnitepy.ext.commands.Context) -> None:
         )
 
     
-@client.command()
+@client.command(
+    description="[Cosmetic] Equips all new non encrypted emotes.",
+    help="Equips all new non encrypted emotes.\n"
+    "Example: !newemote"
+)
 async def newemote(ctx: fortnitepy.ext.commands.Context) -> None:
     async with aiohttp.ClientSession() as session:
         request = await session.request(
@@ -1758,8 +1956,12 @@ async def newemote(ctx: fortnitepy.ext.commands.Context) -> None:
     await client.party.me.clear_emote()
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Party] Sets the client to the \"Just Chattin'\" state.",
+    help="Sets the client to the \"Just Chattin'\" state.\n"
+    "Example: !justchattin"
+)
 async def justchattin(ctx: fortnitepy.ext.commands.Context) -> None:
     client.default_party_member_config.cls = fortnitepy.JustChattingClientPartyMember
 
@@ -1777,14 +1979,19 @@ async def justchattin(ctx: fortnitepy.ext.commands.Context) -> None:
         await ctx.send('Party not found, are you sure Fortnite is open?')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Equips all skins currently in the item shop.",
+    help="Equips all skins currently in the item shop.\n"
+    "Example: !shop"
+)
 async def shop(ctx: fortnitepy.ext.commands.Context) -> None:
     store = await client.fetch_item_shop()
 
-    await ctx.send(f"Equipping all cosmetics in today's item shop.")
+    await ctx.send(f"Equipping all skins in today's item shop.")
+    print(f"[PartyBot] [{time()}] Equipping all skins in today's item shop.")
 
-    for item in store.special_featured_items + store.special_daily_items:
+    for item in store.special_featured_items + store.special_daily_items + store.special_featured_items + store.special_daily_items:
         for grant in item.grants:
             if grant['type'] == 'AthenaCharacter':
                 await client.party.me.set_outfit(
@@ -1792,28 +1999,18 @@ async def shop(ctx: fortnitepy.ext.commands.Context) -> None:
                 )
 
                 await ctx.send(f"Skin set to {item.display_names[0]}!")
-                
+                print(f"[PartyBot] [{time()}] Skin set to: {item.display_names[0]}!")
+
                 await asyncio.sleep(3)
-                
-    for item in store.featured_items + store.daily_items:
-        for grant in item.grants:
-            if grant['type'] == 'AthenaDance':
-                await client.party.me.set_emote(
-                    asset=grant['asset']
-                )
 
-                await ctx.send(f"Emote set to {item.display_names[0]}!")
-
-                await asyncio.sleep(5)
-    await ctx.send(f'Finished equipping all cosmetics in the item shop.')
-    variants = client.party.me.create_variants(**{data['variants-type']: data['variants']})
-    await client.party.me.set_outfit(
-                asset=data['cid'],
-                variants=variants
-        )
-
-
-@client.command()
+    await ctx.send(f'Finished equipping all skins in the item shop.')
+    print(f'[PartyBot] [{time()}] Finished equipping all skins in the item shop.')
+    
+@client.command(
+    description="[Cosmetic] Equips all skins currently in the item shop.",
+    help="Equips all skins currently in the item shop.\n"
+    "Example: !shopemote"
+)
 async def shopskin(ctx: fortnitepy.ext.commands.Context) -> None:
     store = await client.fetch_item_shop()
 
@@ -1838,7 +2035,11 @@ async def shopskin(ctx: fortnitepy.ext.commands.Context) -> None:
 
     
     
-@client.command()
+@client.command(
+    description="[Cosmetic] Equips all emotes currently in the item shop.",
+    help="Equips all emotes currently in the item shop.\n"
+    "Example: !shopemote"
+)
 async def shopemote(ctx: fortnitepy.ext.commands.Context) -> None:
     store = await client.fetch_item_shop()
 
@@ -1858,8 +2059,12 @@ async def shopemote(ctx: fortnitepy.ext.commands.Context) -> None:
     await ctx.send(f'Finished equipping all emotes in the item shop.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Equips a random old default skin.",
+    help="Equips a random old default skin.\n"
+    "Example: !olddefault"
+)
 async def olddefault(ctx: fortnitepy.ext.commands.Context) -> None:
     random_default = py_random.choice(
         [cid_ for cid_ in dir(fortnitepy.DefaultCharactersChapter1) if not cid_.startswith('_')]
@@ -1873,8 +2078,12 @@ async def olddefault(ctx: fortnitepy.ext.commands.Context) -> None:
     print(f"[PartyBot] [{time()}] Skin set to {random_default}.")
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the client to Hatless Recon Expert.",
+    help="Sets the outfit of the client to Hatless Recon Expert.\n"
+    "Example: !hatlessrecon"
+)
 async def hatlessrecon(ctx: fortnitepy.ext.commands.Context) -> None:
     skin_variants = client.party.me.create_variants(
         parts=2
@@ -1889,8 +2098,12 @@ async def hatlessrecon(ctx: fortnitepy.ext.commands.Context) -> None:
     print(f'[PartyBot] [{time()}] Skin set to Hatless Recon Expert.')
 
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the to the max tier skin in the defined season.",
+    help="Sets the outfit of the to the max tier skin in the defined season.\n"
+    "Example: !season 2"
+)
 async def season(ctx: fortnitepy.ext.commands.Context, br_season: int) -> None:
     max_tier_skins = {
         1: "CID_028_Athena_Commando_F",
@@ -1913,9 +2126,38 @@ async def season(ctx: fortnitepy.ext.commands.Context, br_season: int) -> None:
     await ctx.send(f'Skin set to {max_tier_skins[br_season]}!')
     print(f"[PartyBot] [{time()}] Skin set to {max_tier_skins[br_season]}.")
 
+    
+@client.command(
+    description="[Cosmetic] Sets the outfit of the to the old default skin.",
+    help="Sets the outfit of the to the old default skin.\n"
+    "Example: !ogdefault 2"
+)
+async def ogdefault(ctx: fortnitepy.ext.commands.Context, br_season: int) -> None:
+    max_tier_skins = {
+        1: "cid_001_athena_commando_f_default",
+        2: "cid_002_athena_commando_f_default",
+        3: "cid_003_athena_commando_f_default",
+        4: "cid_004_athena_commando_f_default",
+        5: "cid_005_athena_commando_m_default",
+        6: "cid_006_athena_commando_m_default",
+        7: "cid_007_athena_commando_m_default",
+        8: "cid_008_athena_commando_m_default"
+    }
+    
+    await client.party.me.set_outfit(asset=max_tier_skins[br_season])
+    await ctx.send(f'Skin set to OG Default!')
+    await client.party.me.clear_emote()
+    await asyncio.sleep(0.090)
+    await client.party.me.set_emote(
+      asset='eid_dancemoves'
+    )
 
- 
-@client.command()
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the client to a random Henchman skin.",
+    help="Sets the outfit of the client to a random Henchman skin.\n"
+    "Example: !henchman"
+)
 async def henchman(ctx: fortnitepy.ext.commands.Context) -> None:
     random_henchman = py_random.choice(
         "CID_794_Athena_Commando_M_HenchmanBadShorts_D",
@@ -1943,32 +2185,129 @@ async def henchman(ctx: fortnitepy.ext.commands.Context) -> None:
     await ctx.send(f'Skin set to {random_henchman}!')
     print(f"[PartyBot] [{time()}] Skin set to {random_henchman}.")
 
-    
-@client.command()
-async def ogdefault(ctx: fortnitepy.ext.commands.Context, br_season: int) -> None:
-    max_tier_skins = {
-        1: "cid_001_athena_commando_f_default",
-        2: "cid_002_athena_commando_f_default",
-        3: "cid_003_athena_commando_f_default",
-        4: "cid_004_athena_commando_f_default",
-        5: "cid_005_athena_commando_m_default",
-        6: "cid_006_athena_commando_m_default",
-        7: "cid_007_athena_commando_m_default",
-        8: "cid_008_athena_commando_m_default"
-    }
-    
-    await client.party.me.set_outfit(asset=max_tier_skins[br_season])
-    await ctx.send(f'Skin set to OG Default!')
-    await client.party.me.clear_emote()
-    await asyncio.sleep(0.090)
+
+  
+@client.command(
+    description="[Cosmetic] Sets the emote of the client to Floss.",
+    help="Sets the emote of the client to Floss.\n"
+    "Example: !floss"
+)
+async def floss(ctx: fortnitepy.ext.commands.Context) -> None:
+    # // You caused this FunGames, you caused this...
     await client.party.me.set_emote(
-      asset='eid_dancemoves'
+        asset='EID_Floss'
     )
 
- 
-@client.command()
-async def meta(ctx: fortnitepy.ext.commands.Context) -> None:
-    print(json.dumps(client.party.meta.schema, sort_keys=False, indent=4))
+    await ctx.send('Emote set to Floss!')
+    print(f"[PartyBot] [{time()}] Emote set to Floss.")
+
+
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the client to a random marauder skin.",
+    help="Sets the outfit of the client to a random marauder skin.\n"
+    "Example: !marauder"
+)
+async def marauder(ctx: fortnitepy.ext.commands.Context) -> None:
+    random_marauder = py_random.choice(
+        "CID_NPC_Athena_Commando_M_MarauderHeavy",
+        "CID_NPC_Athena_Commando_M_MarauderElite",
+        "CID_NPC_Athena_Commando_M_MarauderGrunt"
+    )
+
+    await client.party.me.set_outfit(
+        asset=random_marauder
+    )
+
+    await ctx.send(f'Skin set to {random_marauder}!')
+    print(f"[PartyBot] [{time()}] Skin set to {random_marauder}.")
+
+
+  
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the client to Golden Brutus "
+                "(shortcut for !enlightened CID_692_Athena_Commando_M_HenchmanTough 2 180).",
+    help="Sets the outfit of the client to Golden Brutus.\n"
+    "Example: !goldenbrutus"
+)
+async def goldenbrutus(ctx: fortnitepy.ext.commands.Context) -> None:
+    await client.party.me.set_outfit(
+        asset='CID_692_Athena_Commando_M_HenchmanTough',
+        variants=client.party.me.create_variants(progressive=4),
+        enlightenment=(2, 180)
+    )
+
+    await ctx.send(f'Skin set to Golden Brutus.')
+
+
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the client to Golden Meowscles "
+                "(shortcut for !enlightened CID_693_Athena_Commando_M_BuffCat 2 220).",
+    help="Sets the outfit of the client to Golden Meowscles.\n"
+    "Example: !goldenmeowscles"
+)
+async def goldenmeowscles(ctx: fortnitepy.ext.commands.Context) -> None:
+    await client.party.me.set_outfit(
+        asset='CID_693_Athena_Commando_M_BuffCat',
+        variants=client.party.me.create_variants(progressive=4),
+        enlightenment=(2, 220)
+    )
+
+    await ctx.send(f'Skin set to Golden Meowscles.')
+
+
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the client to Golden Midas "
+                "(shortcut for !enlightened CID_694_Athena_Commando_M_CatBurglar 2 140).",
+    help="Sets the outfit of the client to Golden Peely.\n"
+    "Example: !goldenmidas"
+)
+async def goldenmidas(ctx: fortnitepy.ext.commands.Context) -> None:
+    await client.party.me.set_outfit(
+        asset='CID_694_Athena_Commando_M_CatBurglar',
+        variants=client.party.me.create_variants(progressive=4),
+        enlightenment=(2, 140)
+    )
+
+    await ctx.send(f'Skin set to Golden Midas.')
+
+
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the client to Golden Skye "
+                "(shortcut for !enlightened CID_690_Athena_Commando_F_Photographer 2 300).",
+    help="Sets the outfit of the client to Golden Skye.\n"
+    "Example: !goldenskye"
+)
+async def goldenskye(ctx: fortnitepy.ext.commands.Context) -> None:
+    await client.party.me.set_outfit(
+        asset='CID_690_Athena_Commando_F_Photographer',
+        variants=client.party.me.create_variants(progressive=4),
+        enlightenment=(2, 300)
+    )
+
+    await ctx.send(f'Skin set to Golden Skye.')
+
+
+  
+@client.command(
+    description="[Cosmetic] Sets the outfit of the client to Golden TNTina "
+                "(shortcut for !enlightened CID_691_Athena_Commando_F_TNTina 2 350).",
+    help="Sets the outfit of the client to Golden TNTina.\n"
+    "Example: !goldentntina"
+)
+async def goldentntina(ctx: fortnitepy.ext.commands.Context) -> None:
+    await client.party.me.set_outfit(
+        asset='CID_691_Athena_Commando_F_TNTina',
+        variants=client.party.me.create_variants(progressive=7),
+        enlightenment=(2, 260)
+    )
+
+    await ctx.send(f'Skin set to Golden TNTina.')
+
 
 if (data['email'] and data['password']) and (data['email'] != 'email@email.com' and data['password'] != 'password1'):
     try:
