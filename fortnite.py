@@ -317,7 +317,7 @@ async def event_friend_request(request: fortnitepy.IncomingPendingFriend) -> Non
 
 
 @client.event
-async def event_party_member_join(member: fortnitepy.ClientPartyMember) -> None:
+async def event_party_member_join(ctx: fortnitepy.ClientPartyMember) -> None:
 
     member = client.party.me
     
@@ -988,7 +988,7 @@ async def status(ctx: fortnitepy.ext.commands.Context, *, content: str) -> None:
     "Example: !leave"
 )
 async def leave(ctx: fortnitepy.ext.commands.Context) -> None:
-    await client.party.me.set_emote('EID_Wave')
+    await client.party.me.set_emote('eid_snap ')
     await asyncio.sleep(2)
     await client.party.me.leave()
     await ctx.send('Bye!')
@@ -1012,6 +1012,8 @@ async def kick(ctx: fortnitepy.ext.commands.Context, *, epic_username: str) -> N
         try:
             await member.kick()
             await ctx.send(f"Kicked user: {member.display_name}.")
+            await asyncio.sleep(0.1)
+            await client.party.me.set_emote('eid_snap')
             print(f"[PartyBot] [{time()}] Kicked user: {member.display_name}")
         except fortnitepy.errors.Forbidden:
             await ctx.send(f"Failed to kick {member.display_name}, as I'm not party leader.")
