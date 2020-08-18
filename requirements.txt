@@ -5,3 +5,4 @@ pypresence
 psutil
 aiohttp
 colorama
+FortniteAPIAsync
