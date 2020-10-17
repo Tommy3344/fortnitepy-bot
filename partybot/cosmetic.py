@@ -1051,8 +1051,8 @@ class CosmeticCommands(commands.Cog):
         await ctx.send(f"Equipping all skins in today's item shop.")
         print(self.bot.message % f"Equipping all skins in today's item shop.")
 
-        for item in store.special_featured_items + \
-                    store.special_daily_items + \
+        for item in store.featured_items + \
+                    store.daily_items + \
                     store.special_featured_items + \
                     store.special_daily_items:
             for grant in item.grants:
